@@ -5,7 +5,6 @@ from skimage.feature import hog
 from skimage import exposure
 from PIL import Image
 import numpy as np
-from sklearn.decomposition import PCA
 from skimage.feature import graycomatrix, graycoprops
 
 

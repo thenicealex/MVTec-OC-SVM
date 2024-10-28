@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 import numpy as np
 from sklearn.metrics import roc_auc_score, f1_score, precision_score, recall_score
 from data_module import DATA_PATH, MVTecADDataModule
@@ -46,7 +46,7 @@ def evaluate_model(model, test_features, test_labels, category="bottle"):
     recall = recall_score(test_labels, predictions)
 
     logging.info(
-        f"For {category}, AUC: {auc}, F1 Score: {f1}, Precision: {precision}, Recall: {recall}"
+        f"For {category}, AUC: {auc:.3f}, F1 Score: {f1:.3f}, Precision: {precision:.3f}, Recall: {recall:.3f}"
     )
 
     return auc, f1, precision, recall
@@ -67,6 +67,7 @@ def extract_features(ex, train_dataset, test_dataset):
 
     def extract(dataset):
         features = [ex.extract(image) for image, _ in dataset]
+        features = [feature / np.linalg.norm(feature) for feature in features]  # L2 normalization
         labels = [data[1].item() for data in dataset]
         return features, labels
 
@@ -179,9 +180,20 @@ def boosting_train_and_evaluate_one_category(category: str = "bottle"):
 def save_to_csv(method, category, auc, f1, precision, recall):
     now = datetime.now()
     time = now.strftime("%Y-%m-%d_%H:%M:%S")
+    auc = round(auc, 3)
+    f1 = round(f1, 3)
+    precision = round(precision, 3)
+    recall = round(recall, 3)
     
     method = method + "_" + category + "_" + time
-    data = {method: [auc, f1, precision, recall]}
+
+    data = {
+        "method": [method],
+        "auc": [auc],
+        "f1": [f1],
+        "precision": [precision],
+        "recall": [recall],
+    }
     df = pd.DataFrame(data)
 
     filename = "results.csv"

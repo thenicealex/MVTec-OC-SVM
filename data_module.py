@@ -1,11 +1,7 @@
 import os
 import numpy as np
-import torch
-from torchvision.transforms import transforms
 from torch.utils.data import Dataset
-from typing import Union, List
 from PIL import Image
-from utils import tensor_to_PIL
 
 DATA_PATH = "/home/pod/shared-nvme/datasets/MVTec-AD"
 
