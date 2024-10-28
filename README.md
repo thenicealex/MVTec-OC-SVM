@@ -1,4 +1,9 @@
-# 基于 OC-SVM 和手动特征提取的单分类异常检测项目
+# 基于 OC-SVM 和集成学习的单分类异常检测项目
+
+## update 2024-10-28
+
+支持 Bagging 方法，增加了 Bagging 方法的实现。
+支持 Boosting 方法，增加了 Boosting 方法的实现。
 
 ## Run
 
