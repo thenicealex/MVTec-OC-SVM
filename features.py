@@ -6,6 +6,8 @@ from skimage import exposure
 from PIL import Image
 import numpy as np
 from skimage.feature import graycomatrix, graycoprops
+from sklearn.decomposition import PCA
+import matplotlib.pyplot as plt
 
 
 class FeatureExtractor:
@@ -18,6 +20,7 @@ class FeatureExtractor:
             gray,
             [1],
             [0, np.pi / 4, np.pi / 2, 3 * np.pi / 4],
+            levels = 256,
             symmetric=True,
             normed=True,
         )
@@ -25,39 +28,31 @@ class FeatureExtractor:
         dissimilarity = graycoprops(glcm, "dissimilarity").flatten()
         homogeneity = graycoprops(glcm, "homogeneity").flatten()
         energy = graycoprops(glcm, "energy").flatten()
-        return np.hstack([contrast, dissimilarity, homogeneity, energy]) # (12,)
-
-    def canny(self, image: Image.Image):
-        image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-        edges = cv2.Canny(image_cv, threshold1=100, threshold2=200)
-        return edges.flatten() #(810000,)
+        correlation = graycoprops(glcm, "correlation").flatten()
+        return np.hstack([contrast, dissimilarity, homogeneity, energy, correlation]) # (12,)
 
     def lbp(self, image: Image.Image):
         image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
+        # image_cv = cv2.resize(image_cv, (512, 512))
         radius = 1
         n_points = 8 * radius
-        lbp = local_binary_pattern(image_cv, n_points, radius, method="uniform")
+        lbp = local_binary_pattern(image_cv, n_points, radius, method="default")
 
-        grid_x, grid_y = 30, 30
-        features = []
-
-        for i in range(0, image_cv.shape[0], grid_y):
-            for j in range(0, image_cv.shape[1], grid_x):
-                block = lbp[i : i + grid_y, j : j + grid_x]
-
-                hist, _ = np.histogram(
-                    block.ravel(), bins=np.arange(0, 26), range=(0, 26)
-                )
-
-                hist = hist.astype("float")
-                hist /= hist.sum() + 1e-6
-
-                features.append(hist)
-
-        features = np.concatenate(features, axis=0)
-        return features
+        n_bins = 8
+        hist, _ = np.histogram(lbp.ravel(), bins=np.arange(0, n_bins + 3), range=(0, n_bins+2))
+        
+        hist = hist.astype("float") / (hist.sum() + 1e-7)
+        return hist
 
     def color_histogram(self, image: Image.Image):
+        # image = np.array(image)
+        # image_float = image.astype(np.float32)
+        # histograms = []
+        # n_bins = 256
+        # for channel in range(image.shape[2]):
+        #     histogram, _ = np.histogram(image_float[:, :, channel], bins=n_bins, range=(0, 256), density=True)
+        #     histograms.append(histogram)
+        # hist = np.concatenate(histograms)
         hsv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2HSV)
         bins = (8, 8, 8)
         hist = cv2.calcHist(
@@ -69,25 +64,25 @@ class FeatureExtractor:
 
     def hog(self, image: Image.Image):
         image_gray = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-        # image_gray = cv2.resize(image_gray, (256, 256))
+        image_gray = cv2.resize(image_gray, (512, 512))
         feat = hog(
             image_gray,
             orientations=9,
-            pixels_per_cell=(32, 32),
-            cells_per_block=(3, 3),
+            pixels_per_cell=(16, 16),
+            cells_per_block=(2, 2),
             feature_vector=True,
         )
         return feat
     
-    def extract(self, image: Image.Image, lbp=False, glcm=False, canny=False, color_histogram=False):
+    def extract(self, image: Image.Image, hog = True, lbp=False, glcm=False, color_histogram=False):
         # Initialize the output with HOG features
-        features = self.hog(image) if hog else np.array([])
+        features = np.array([])
 
         # Define a dictionary to map feature flags to their corresponding methods
         feature_methods = {
+            hog: self.hog,
             lbp: self.lbp,
             glcm: self.glcm,
-            canny: self.canny,
             color_histogram: self.color_histogram
         }
 
@@ -170,7 +165,5 @@ if __name__ == "__main__":
     # process_and_save_features(dataset, image_index=0)
     ex = FeatureExtractor()
     image, _ = train_dataset[0]
-    print(image)
-    f = ex.extract(image, lbp=True)
-    # print(f)
+    f = ex.extract(image, hog=False, color_histogram=True)
     print(f.shape)

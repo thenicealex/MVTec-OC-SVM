@@ -52,22 +52,11 @@ def evaluate_model(model, test_features, test_labels, category="bottle"):
     return auc, f1, precision, recall
 
 
-def normalize(features, method="l2"):
-    if method == "l2":
-        norms = np.linalg.norm(features, axis=1, keepdims=True)
-
-        norms[norms == 0] = 1
-
-        normalized_data = features / norms
-
-    return normalized_data
-
-
 def extract_features(ex, train_dataset, test_dataset):
 
     def extract(dataset):
-        features = [ex.extract(image) for image, _ in dataset]
-        features = [feature / np.linalg.norm(feature) for feature in features]  # L2 normalization
+        features = [ex.extract(image, hog=False, lbp=True, color_histogram=False) for image, _ in dataset]
+        # features = [feature / np.linalg.norm(feature) for feature in features]  # L2 normalization
         labels = [data[1].item() for data in dataset]
         return features, labels
 
@@ -115,7 +104,7 @@ def train_and_evaluate_one_category(category: str = "bottle"):
     auc, f1, precision, recall = evaluate_model(
         model, test_features, test_labels, category=category
     )
-    save_to_csv("normal", category, auc, f1, precision, recall)
+    save_to_csv("normal_hog", category, auc, f1, precision, recall)
 
 
 def bagging_train_and_evaluate_one_category(category: str = "bottle"):
@@ -138,9 +127,9 @@ def bagging_train_and_evaluate_one_category(category: str = "bottle"):
 
     logging.info("Bagging fitting...")
     model = Bagging(
-        estimator=OneClassSVM(kernel="linear", gamma="auto", nu=0.1),
-        n_estimators=10,
-        percentage=0.8,
+        estimator=OneClassSVM(kernel="rbf", gamma="auto", nu=0.2),
+        n_estimators=20,
+        percentage=0.9,
     )
     model.fit(train_features)
     logging.info("Bagging evaluation...")
@@ -165,16 +154,16 @@ def boosting_train_and_evaluate_one_category(category: str = "bottle"):
     logging.info("Boosting fitting...")
 
     model = OneClassSVMBoost(
-        n_estimators=30,
-        learning_rate=0.1,
-        base_estimator_params={"kernel": "rbf", "nu": 0.1},
+        n_estimators=6,
+        learning_rate=0.5,
+        base_estimator_params={"kernel": "rbf", "nu": 0.2},
     )
     model.fit(train_features, train_labels)
     logging.info("Boosting evaluation...")
     auc, f1, precision, recall = evaluate_model(
         model, test_features, test_labels, category=category
     )
-    save_to_csv("boosting", category, auc, f1, precision, recall)
+    save_to_csv("boosting_10", category, auc, f1, precision, recall)
 
 
 def save_to_csv(method, category, auc, f1, precision, recall):
@@ -210,7 +199,7 @@ def save_to_csv(method, category, auc, f1, precision, recall):
 
 def main():
     np.random.seed(42)
-    train_and_evaluate_one_category("bottle")
+    train_and_evaluate_one_category("wood")
     # train_and_evaluate_all_category()
     # bagging_train_and_evaluate_one_category("bottle")
     # boosting_train_and_evaluate_one_category("bottle")
