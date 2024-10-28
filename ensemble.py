@@ -1,8 +1,87 @@
+# -*- coding: utf-8 -*-
 import numpy as np
+from sklearn.base import BaseEstimator, clone, ClassifierMixin
 from sklearn.svm import OneClassSVM
-from sklearn.base import BaseEstimator, ClassifierMixin
-from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 from sklearn.utils.multiclass import unique_labels
+from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
+
+class Bagging:
+
+    def __init__(
+        self, estimator: BaseEstimator, n_estimators: int = 10, percentage: float = 0.8
+    ):
+        """
+        Initialize the Bagging class.
+
+        :param estimator: The base estimator to be used.
+        :param n_estimators: The number of base estimators.
+        :param percentage: The percentage of data to be used for training each base estimator.
+        """
+        self.estimator = estimator
+        self.n_estimators = n_estimators
+        self.percentage = percentage
+
+        self.estimators = [self._clone_estimator() for _ in range(n_estimators)]
+
+    def _clone_estimator(self) -> BaseEstimator:
+        """
+        Clone the base estimator.
+
+        :return: A new instance of the base estimator.
+        """
+        return clone(self.estimator)
+
+    def get_features(self, X: np.ndarray) -> np.ndarray:
+        """
+        Generate feature samples for each estimator.
+
+        :param X: The input data.
+        :return: A list of feature samples.
+        """
+        features_samples = []
+        num_samples = int(self.percentage * len(X))
+
+        for _ in range(self.n_estimators):
+            feat = []
+            sample_indices = np.random.choice(len(X), num_samples, replace=False)
+            for idx in sample_indices:
+                feat.append(X[idx])
+
+            features_samples.append(feat)
+
+        return np.array(features_samples)
+
+    def fit(self, X: np.ndarray) -> None:
+        """
+        Fit the ensemble of estimators.
+
+        :param X: The input data.
+        """
+        features = self.get_features(X)
+        for i in range(self.n_estimators):
+            print(f"Training estimator {i+1}")
+            self.estimators[i].fit(features[i])
+
+    def predict(self, X: np.ndarray) -> np.ndarray:
+        """
+        Predict using the ensemble of estimators.
+
+        :param X: The input data.
+        :return: The predicted labels.
+        """
+        predictions = np.array([estimator.predict(X) for estimator in self.estimators])
+        return self.vote(predictions)
+
+    def vote(self, predictions: np.ndarray) -> np.ndarray:
+        """
+        Aggregate predictions using majority voting.
+
+        :param predictions: The predictions from each estimator.
+        :return: The aggregated predictions.
+        """
+        summed_predictions = np.sum(predictions, axis=0)
+
+        return np.where(summed_predictions >= 0, 1, -1)
 
 
 class OneClassSVMBoost(BaseEstimator, ClassifierMixin):
@@ -137,33 +216,18 @@ class OneClassSVMBoost(BaseEstimator, ClassifierMixin):
         return scores
 
 
-# Example usage:
 if __name__ == "__main__":
-    from sklearn.datasets import make_classification
-    from sklearn.model_selection import train_test_split
+    # bag = Bagging(estimator=OneClassSVM())
+    X = np.random.randn(10, 5)
+    # feat_samples = bag.get_features(X)
+    # print(feat_samples)
 
-    # Generate sample data
-    X, y = make_classification(
-        n_samples=1000, n_features=20, n_informative=15, n_redundant=5, random_state=42
-    )
-    y = 2 * (y - 0.5)  # Convert to {-1, 1}
+    # bag.fit(X)
+    # pred = bag.predict(X)
+    # print(pred)
 
-    # Split data
-    X_train, X_test, y_train, y_test = train_test_split(
-        X, y, test_size=0.2, random_state=42
-    )
+    bo = Boosting(base_learner=lambda: OneClassSVM(kernel='rbf'))
+    bo.fit(X)
+    
 
-    # Create and train the boosted model
-    model = OneClassSVMBoost(
-        n_estimators=10,
-        learning_rate=0.1,
-        base_estimator_params={"kernel": "rbf", "nu": 0.1},
-    )
-    model.fit(X_train, y_train)
-
-    # Make predictions
-    y_pred = model.predict(X_test)
-
-    # Calculate accuracy
-    accuracy = np.mean(y_pred == y_test)
-    print(f"Test accuracy: {accuracy:.4f}")
+    print(bo.predict(X))

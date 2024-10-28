@@ -83,6 +83,27 @@ class MVTecADTestDataset(Dataset):
         label = np.array(labels[idx])
         return image, label
 
+class MVTecADTestAnomalousDataset(Dataset):
+    def __init__(self, root_dir: str, category: str = "bottle", anomalous_category: str = "broken_small"):
+        super().__init__()
+        self.root_dir = root_dir
+
+        self.category = category
+        self.image_paths = self._get_image_paths()
+
+        self.anomalous_image_paths = os.path.join(self.image_paths, anomalous_category)
+        
+    def _get_image_paths(self):
+        return os.path.join(self.root_dir, self.category, "test")
+
+    def __len__(self):
+        return len(os.listdir(self.anomalous_image_paths))
+    
+    def __getitem__(self, idx):
+        image_path = os.path.join(self.anomalous_image_paths, os.listdir(self.anomalous_image_paths)[idx])
+        image = Image.open(image_path).convert("RGB")
+        label = np.array([-1])
+        return image, label
 
 class MVTecADDataModule(Dataset):
     CLASSES = [
@@ -130,8 +151,13 @@ class MVTecADDataModule(Dataset):
 
 
 if __name__ == "__main__":
-    dataset = MVTecADDataModule(DATA_PATH, mode="train", category="bottle")
-    print(len(dataset))
-    image, _ = dataset[5]
-    print(image)
+    # dataset = MVTecADDataModule(DATA_PATH, mode="train", category="bottle")
+    # print(len(dataset))
+    # image, _ = dataset[5]
+    # print(image)
+    # image.save("image.png")
+
+    da = MVTecADTestAnomalousDataset(DATA_PATH, category="bottle", anomalous_category="broken_small")
+    print(len(da))
+    image, _ = da[0]
     image.save("image.png")

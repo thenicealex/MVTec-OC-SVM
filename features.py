@@ -1,4 +1,3 @@
-import torch
 from data_module import DATA_PATH, MVTecADDataModule
 import cv2
 from skimage.feature import local_binary_pattern
@@ -6,9 +5,7 @@ from skimage.feature import hog
 from skimage import exposure
 from PIL import Image
 import numpy as np
-import matplotlib.pyplot as plt
-import torch.nn as nn
-from utils import tensor_to_PIL
+from sklearn.decomposition import PCA
 from skimage.feature import graycomatrix, graycoprops
 
 
@@ -98,26 +95,21 @@ class FeatureExtractor:
 
     def hog(self, image: Image.Image):
         image_gray = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
-        image_gray = cv2.resize(image_gray, (256, 256))
+        # image_gray = cv2.resize(image_gray, (256, 256))
         feat = hog(
             image_gray,
             orientations=9,
-            pixels_per_cell=(8, 8),
+            pixels_per_cell=(32, 32),
             cells_per_block=(2, 2),
             feature_vector=True,
         )
         return feat
 
     def extract(self, image: Image.Image):
-        # Example of extracting all features
-        features = {
-            "sift": self.sift(image)[1],
-            "canny": self.canny(image),
-            "lbp": self.lbp(image),
-            "color_histogram": self.color_histogram(image),
-            "hog": self.hog(image)[0],
-        }
-        return features
+        hog = self.hog(image)
+        # print("hog shape: ", hog.shape) # (34596,)
+
+        return hog
 
 
 def process_and_save_features(dataset, image_index=0):
