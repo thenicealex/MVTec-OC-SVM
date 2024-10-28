@@ -79,22 +79,25 @@ class FeatureExtractor:
         )
         return feat
     
-    def extract(self, image: Image.Image):
-        hog = self.hog(image)
-        # print("hog shape: ", hog.shape) # (34596,)
+    def extract(self, image: Image.Image, lbp=False, glcm=False, canny=False, color_histogram=False):
+        # Initialize the output with HOG features
+        features = self.hog(image) if hog else np.array([])
 
-        color_h = self.color_histogram(image)
-        # print("color histogram shape: ", color_h.shape) # (512,)
+        # Define a dictionary to map feature flags to their corresponding methods
+        feature_methods = {
+            lbp: self.lbp,
+            glcm: self.glcm,
+            canny: self.canny,
+            color_histogram: self.color_histogram
+        }
 
-        lbp = self.lbp(image)
-        # print("lbp shape: ", lbp.shape) # (22500,)
-        
-        glcm = self.glcm(image)
-        
-        canny = self.canny(image)
-        
-        # return np.hstack([lbp, glcm, hog])
-        return hog
+        # Iterate over the dictionary and extract features if the flag is True
+        for flag, method in feature_methods.items():
+            if flag:
+                extracted_feature = method(image)
+                features = np.hstack([features, extracted_feature])
+
+        return features
 
 
 def process_and_save_features(dataset, image_index=0):
@@ -168,6 +171,6 @@ if __name__ == "__main__":
     ex = FeatureExtractor()
     image, _ = train_dataset[0]
     print(image)
-    f = ex.ORB(image)
+    f = ex.extract(image, lbp=True)
     # print(f)
     print(f.shape)

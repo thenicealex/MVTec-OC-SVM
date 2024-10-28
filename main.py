@@ -26,7 +26,7 @@ def load_dataset(mode, category="bottle"):
 
 
 def train_model(features):
-    model = OneClassSVM(kernel="rbf", gamma="auto", nu=0.1)
+    model = OneClassSVM(kernel="rbf", gamma="auto", nu=0.2)
     model.fit(features)
     logging.info("Model training completed.")
     return model
