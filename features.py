@@ -13,40 +13,6 @@ class FeatureExtractor:
     def __init__(self):
         super(FeatureExtractor, self).__init__()
 
-    def ORB(self, image: Image.Image):
-        open_cv_image = cv2.cvtColor(np.asarray(image),cv2.COLOR_RGB2BGR)
-        
-        orb = cv2.ORB_create()
-        
-        keypoints, descriptors = orb.detectAndCompute(open_cv_image, None)
-        
-        # 如果没有检测到特征点，返回一个空数组
-        if descriptors is None:
-            return np.array([])
-        
-        return descriptors.flatten()
-
-    def sobel(self, image: Image.Image):
-        # 读取图像
-        image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
-
-        # 应用Sobel算子
-        sobelx = cv2.Sobel(image, cv2.CV_64F, 1, 0, ksize=3)
-        sobely = cv2.Sobel(image, cv2.CV_64F, 0, 1, ksize=3)
-
-        pool_size = (4, 4)
-        sobel_magnitude = np.sqrt(sobelx**2 + sobely**2)
-        pooled_features = cv2.resize(
-            sobel_magnitude,
-            (
-                sobel_magnitude.shape[1] // pool_size[1],
-                sobel_magnitude.shape[0] // pool_size[0],
-            ),
-            interpolation=cv2.INTER_AREA,
-        )
-
-        return pooled_features.flatten()
-
     def glcm(self, image: Image.Image):
         gray = cv2.cvtColor(np.array(image), cv2.COLOR_BGR2GRAY)
         glcm = graycomatrix(
@@ -60,36 +26,45 @@ class FeatureExtractor:
         dissimilarity = graycoprops(glcm, "dissimilarity").flatten()
         homogeneity = graycoprops(glcm, "homogeneity").flatten()
         energy = graycoprops(glcm, "energy").flatten()
-        return np.hstack([contrast, dissimilarity, homogeneity, energy])
-
-    def sift(self, image: Image.Image):
-        # 特征点检测和描述
-        # Convert PIL image to OpenCV format
-        image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
-        # image_cv is a numpy array with shape (height, width, 3)
-        sift = cv2.SIFT_create()
-        keypoints, descriptors = sift.detectAndCompute(image_cv, None)
-        return keypoints, descriptors
+        return np.hstack([contrast, dissimilarity, homogeneity, energy]) # (12,)
 
     def canny(self, image: Image.Image):
-        # 边缘特征提取
-        # Convert PIL image to OpenCV format
-        image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2BGR)
+        image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
         edges = cv2.Canny(image_cv, threshold1=100, threshold2=200)
-        return edges
+        return edges.flatten() #(810000,)
 
     def lbp(self, image: Image.Image):
         image_cv = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2GRAY)
         radius = 1
         n_points = 8 * radius
         lbp = local_binary_pattern(image_cv, n_points, radius, method="uniform")
-        return lbp
+
+        grid_x, grid_y = 30, 30
+        features = []
+
+        for i in range(0, image_cv.shape[0], grid_y):
+            for j in range(0, image_cv.shape[1], grid_x):
+                block = lbp[i : i + grid_y, j : j + grid_x]
+
+                hist, _ = np.histogram(
+                    block.ravel(), bins=np.arange(0, 26), range=(0, 26)
+                )
+
+                hist = hist.astype("float")
+                hist /= hist.sum() + 1e-6
+
+                features.append(hist)
+
+        features = np.concatenate(features, axis=0)
+        return features
 
     def color_histogram(self, image: Image.Image):
         hsv_image = cv2.cvtColor(np.array(image), cv2.COLOR_RGB2HSV)
-        bins=(8, 8, 8)
-        hist = cv2.calcHist([hsv_image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256])
-        
+        bins = (8, 8, 8)
+        hist = cv2.calcHist(
+            [hsv_image], [0, 1, 2], None, bins, [0, 180, 0, 256, 0, 256]
+        )
+
         hist = cv2.normalize(hist, hist).flatten()
         return hist
 
@@ -100,15 +75,26 @@ class FeatureExtractor:
             image_gray,
             orientations=9,
             pixels_per_cell=(32, 32),
-            cells_per_block=(2, 2),
+            cells_per_block=(3, 3),
             feature_vector=True,
         )
         return feat
-
+    
     def extract(self, image: Image.Image):
         hog = self.hog(image)
         # print("hog shape: ", hog.shape) # (34596,)
 
+        color_h = self.color_histogram(image)
+        # print("color histogram shape: ", color_h.shape) # (512,)
+
+        lbp = self.lbp(image)
+        # print("lbp shape: ", lbp.shape) # (22500,)
+        
+        glcm = self.glcm(image)
+        
+        canny = self.canny(image)
+        
+        # return np.hstack([lbp, glcm, hog])
         return hog
 
 
@@ -182,8 +168,7 @@ if __name__ == "__main__":
     # process_and_save_features(dataset, image_index=0)
     ex = FeatureExtractor()
     image, _ = train_dataset[0]
-    # image = tensor_to_PIL(image)
     print(image)
-    f = ex.hog(image)
+    f = ex.ORB(image)
+    # print(f)
     print(f.shape)
-    print(f)

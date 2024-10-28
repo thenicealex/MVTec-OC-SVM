@@ -5,6 +5,7 @@ from sklearn.svm import OneClassSVM
 from sklearn.utils.multiclass import unique_labels
 from sklearn.utils.validation import check_X_y, check_array, check_is_fitted
 
+
 class Bagging:
 
     def __init__(
@@ -225,9 +226,3 @@ if __name__ == "__main__":
     # bag.fit(X)
     # pred = bag.predict(X)
     # print(pred)
-
-    bo = Boosting(base_learner=lambda: OneClassSVM(kernel='rbf'))
-    bo.fit(X)
-    
-
-    print(bo.predict(X))
